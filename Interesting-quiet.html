@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>课堂安静值检测器 · 自习课</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=ZCOOL+KuaiLe&family=Noto+Sans+SC:wght@400;500;700;900&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+<style>
+:root{
+  --bg:#0d1117;--panel:#161b22;--panel2:#1c2230;--line:#2a3242;
+  --txt:#e6edf3;--dim:#8b949e;--green:#2ed573;--amber:#ffa502;--red:#ff4757;
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%}
+body{font-family:'Noto Sans SC',sans-serif;color:var(--txt);background:radial-gradient(1200px 700px at 50% -10%,#1b2434 0%,var(--bg) 60%);overflow:hidden}
+#app{height:100vh;display:flex;flex-direction:column;padding:16px 22px 20px;gap:14px}
+
+.topbar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:12px}
+.brand-ico{width:44px;height:44px;flex:none;border-radius:14px;background:linear-gradient(135deg,#1f6feb,#2ed573);display:flex;align-items:center;justify-content:center;box-shadow:0 6px 18px rgba(31,111,235,.35)}
+.brand-ico svg{width:24px;height:24px;color:#fff}
+.brand h1{font-size:22px;font-weight:900;letter-spacing:1px}
+.brand small{display:block;font-size:11px;color:var(--dim);letter-spacing:2px}
+.controls{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.pill{display:flex;align-items:center;gap:8px;background:var(--panel);border:1px solid var(--line);border-radius:99px;padding:6px 14px}
+.pill .pl{font-size:11px;color:var(--dim);white-space:nowrap}
+.pill .pv{font-family:'ZCOOL KuaiLe';font-size:15px;color:var(--amber);width:34px;text-align:center}
+.pill input[type=range]{width:96px;accent-color:#2ed573;cursor:pointer}
+button.btn{display:inline-flex;align-items:center;gap:7px;border:none;border-radius:99px;padding:9px 18px;font-family:'ZCOOL KuaiLe';font-size:15px;letter-spacing:1px;cursor:pointer;transition:transform .06s,filter .2s}
+button.btn:active{transform:scale(.96)}button.btn svg{width:16px;height:16px}
+.btn-start{background:linear-gradient(135deg,#2ed573,#1fb959);color:#062;box-shadow:0 4px 0 #129a46}
+.btn-start.stop{background:linear-gradient(135deg,#ff4757,#e03a3a);color:#fff;box-shadow:0 4px 0 #b52735}
+.btn-ghost{background:var(--panel2);color:var(--txt);border:1px solid var(--line);box-shadow:0 3px 0 var(--line)}
+.btn-ghost:hover{background:#263041;color:#fff}
+
+.main{flex:1;min-height:0;display:flex;gap:16px}
+.viz{flex:1.4;display:flex;align-items:center;justify-content:center;min-width:0;position:relative}
+.side{flex:1;min-width:300px;display:flex;flex-direction:column;gap:12px;min-height:0}
+
+.gauge-wrap{position:relative;width:min(46vh,52vw,520px);aspect-ratio:1;display:flex;align-items:center;justify-content:center}
+.gauge-svg{width:100%;height:100%}
+.track{fill:none;stroke:#222b3a;stroke-width:22}
+.arc{fill:none;stroke-width:22;stroke-linecap:round}
+.arc.lvl-g{stroke:var(--green)}.arc.lvl-a{stroke:var(--amber)}.arc.lvl-r{stroke:var(--red);filter:drop-shadow(0 0 10px var(--red))}
+.arc-tick{fill:none;stroke:#2f6b4a}
+.arc-tick.amber{stroke:#7a5c16}.arc-tick.red{stroke:#7a2a30}
+.tick-label{font-size:9px;fill:var(--dim);font-family:'ZCOOL KuaiLe';font-weight:700}
+.ripple{position:absolute;inset:0;border-radius:50%;border:3px solid var(--green);opacity:0}
+.ripple.running{animation:rippleOut var(--rd,3s) ease-out infinite}
+@keyframes rippleOut{0%{transform:scale(.92);opacity:.7}100%{transform:scale(1.6);opacity:0}}
+.ripple.amber{border-color:var(--amber)}.ripple.red{border-color:var(--red)}
+.gauge-core{position:absolute;inset:16%;border-radius:50%;background:radial-gradient(circle at 35% 30%,#1c2330,#11151d);border:1px solid var(--line);display:flex;flex-direction:column;align-items:center;justify-content:center;box-shadow:inset 0 0 40px rgba(0,0,0,.6);transition:box-shadow .4s}
+.gauge-core.hot{animation:hotGlow .6s ease-in-out infinite alternate}
+@keyframes hotGlow{from{box-shadow:inset 0 0 30px rgba(0,0,0,.6)}to{box-shadow:inset 0 0 30px rgba(0,0,0,.6),0 0 45px rgba(255,71,87,.55)}}
+.db-row{display:flex;align-items:baseline;gap:4px;line-height:1}
+.db-num{font-family:'ZCOOL KuaiLe';font-size:clamp(46px,9vh,88px);letter-spacing:1px;transition:color .2s}
+.db-num.g{color:var(--green)}.db-num.a{color:var(--amber)}.db-num.r{color:var(--red)}
+.db-unit{font-size:20px;color:var(--dim);font-weight:700}
+.emoji{font-size:clamp(26px,5vh,42px);margin-top:2px}
+.status-txt{font-family:'ZCOOL KuaiLe';font-size:clamp(15px,2.6vh,21px);letter-spacing:3px;margin-top:8px;color:var(--txt);text-align:center}
+.submin{font-size:11px;color:var(--dim);margin-top:5px;letter-spacing:1px}
+.badge-warn{position:absolute;top:5%;right:6%;padding:5px 14px;border-radius:99px;font-family:'ZCOOL KuaiLe';font-size:14px;letter-spacing:2px;opacity:0;transform:translateY(-6px) scale(.8);transition:all .25s;background:rgba(255,71,87,.16);color:var(--red);border:1px solid var(--red)}
+.badge-warn.green{background:rgba(46,213,115,.14);color:var(--green);border-color:var(--green)}
+.badge-warn.show{opacity:1;transform:none}
+
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:14px 16px;display:flex;flex-direction:column}
+.panel-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+.panel-header h3{font-size:13px;font-weight:700;color:var(--dim);letter-spacing:1px;display:flex;align-items:center;gap:7px}
+.panel-header h3 svg{width:14px;height:14px}
+.panel-header .meta{font-size:11px;color:var(--dim)}
+.trend{width:100%;height:110px;display:block}
+.trend-empty{height:110px;width:100%;display:flex;align-items:center;justify-content:center;color:#3d4757;font-size:12px;letter-spacing:1px}
+.stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.stat{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:10px 4px;text-align:center}
+.stat b{display:block;font-family:'ZCOOL KuaiLe';font-size:18px}
+.stat span{font-size:10px;color:var(--dim);letter-spacing:1px}
+.stat.g b{color:var(--green)}.stat.a b{color:var(--amber)}.stat.r b{color:var(--red)}
+.records{flex:1;min-height:0;display:flex;flex-direction:column}
+.rows{overflow-y:auto;min-height:0;display:flex;flex-direction:column;gap:4px}
+.rows::-webkit-scrollbar{width:6px}.rows::-webkit-scrollbar-thumb{background:#2a3242;border-radius:3px}
+.rec{display:grid;grid-template-columns:60px 1fr 1fr 1fr;gap:4px;font-size:12px;color:var(--dim);padding:6px 10px;background:var(--panel2);border-radius:8px}
+.rec.head{font-weight:700;color:#55606e;background:transparent;font-size:11px;letter-spacing:1px}
+.rec .t{font-variant-numeric:tabular-nums}
+.rec .g{color:var(--green)}.rec .a{color:var(--amber)}.rec .r{color:var(--red)}
+.empty-tip{color:#3d4757;text-align:center;font-size:12px;padding:18px}
+
+@media (max-width:900px){
+  .main{flex-direction:column;overflow:auto}
+  .side{min-width:0}
+  .gauge-wrap{width:min(64vw,52vh,480px)}
+}
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="topbar">
+    <div class="brand">
+      <div class="brand-ico"><i data-lucide="ear-off"></i></div>
+      <div><h1>课堂安静值检测器</h1><small>自习课 · 环静度监测</small></div>
+    </div>
+    <div class="controls">
+      <div class="pill" title="灵敏度：越高越容易判定为吵闹">
+        <span class="pl">灵敏度</span>
+        <input type="range" id="sensR" min="1" max="10" step="0.5" value="5">
+        <span class="pv" id="sensV">中</span>
+      </div>
+      <div class="pill" title="超过该等级判定为吵闹">
+        <span class="pl">警戒</span>
+        <input type="range" id="warnR" min="40" max="90" step="1" value="60">
+        <span class="pv" id="warnV">60</span>
+      </div>
+      <button class="btn btn-start" id="startBtn"><i data-lucide="mic"></i><span>开始检测</span></button>
+      <button class="btn btn-ghost" id="fsBtn"><i data-lucide="maximize-2"></i>全屏</button>
+      <button class="btn btn-ghost" id="exportBtn" title="导出 CSV"><i data-lucide="download"></i>导出</button>
+    </div>
+  </div>
+
+  <div class="main">
+    <div class="viz">
+      <div class="gauge-wrap" id="gauge">
+        <div class="ripple" id="rp1"></div>
+        <div class="ripple" id="rp2"></div>
+        <div class="ripple" id="rp3"></div>
+        <svg class="gauge-svg" viewBox="0 0 200 200">
+          <g id="ticks"></g>
+          <circle class="track" cx="100" cy="100" r="84"/>
+          <path class="arc lvl-g" id="arc" d=""/>
+        </svg>
+        <div class="gauge-core" id="core">
+          <div class="db-row"><span class="db-num g" id="dbNum">--</span><span class="db-unit">dB</span></div>
+          <div class="emoji" id="emoji">😴</div>
+          <div class="status-txt" id="statusTxt">等待开启</div>
+          <div class="submin" id="submin">点击「开始检测」</div>
+        </div>
+        <div class="badge-warn" id="warnBadge">📢 安静！</div>
+      </div>
+    </div>
+
+    <div class="side">
+      <div class="panel">
+        <div class="panel-header"><h3><i data-lucide="activity"></i>安静趋势（5秒/点）</h3></div>
+        <canvas class="trend" id="trend2"></canvas>
+        <div class="trend-empty" id="trendEmpty">开始检测后记录噪音趋势</div>
+      </div>
+      <div class="panel">
+        <div class="stat-grid">
+          <div class="stat g"><b id="sQuiet">0</b><span>安静</span></div>
+          <div class="stat a"><b id="sLow">0</b><span>低语</span></div>
+          <div class="stat r"><b id="sNoisy">0</b><span>吵闹</span></div>
+          <div class="stat"><b id="sPeak">--</b><span>峰值</span></div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-header"><h3><i data-lucide="list"></i>检测记录</h3><span class="meta" id="recMeta">共 0 条</span></div>
+        <div class="records">
+          <div class="rows" id="recHead">
+            <div class="rec head"><span>时间</span><span>平均</span><span>最高</span><span>状态</span></div>
+          </div>
+          <div class="rows" id="recRows"></div>
+          <div class="empty-tip" id="recEmpty">暂无记录</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ================================================================
+   课堂安静值检测器 —— 环形仪表盘 · 自习课
+   ================================================================ */
+const $=id=>document.getElementById(id);
+const dbNum=$('dbNum'),emoji=$('emoji'),statusTxt=$('statusTxt'),submin=$('submin'),
+      core=$('core'),warnBadge=$('warnBadge'),arc=$('arc'),ticks=$('ticks'),
+      sensR=$('sensR'),sensV=$('sensV'),warnR=$('warnR'),warnV=$('warnV'),
+      startBtn=$('startBtn'),fsBtn=$('fsBtn'),exportBtn=$('exportBtn'),
+      sQuiet=$('sQuiet'),sLow=$('sLow'),sNoisy=$('sNoisy'),sPeak=$('sPeak'),
+      trend2=$('trend2'),trendEmpty=$('trendEmpty'),recRows=$('recRows'),
+      recEmpty=$('recEmpty'),recMeta=$('recMeta');
+const R=84,CX=100,CY=100;
+const ARC=Math.PI*1.5;
+const ARC_START=Math.PI*0.75;
+const ripples=Array.from(document.querySelectorAll('.ripple'));
+
+function polar(t,r){
+  const ang=ARC_START - t*ARC;
+  return {x:CX+Math.cos(ang)*r, y:CY-Math.sin(ang)*r};
+}
+function arcPath(t){
+  if(t<=0.001) return '';
+  const a=polar(0,R),b=polar(t,R);
+  const large=t>0.5?1:0;
+  return `M ${a.x} ${a.y} A ${R} ${R} 0 ${large} 1 ${b.x} ${b.y}`;
+}
+/* 刻度与标签 */
+[0,.1,.2,.3,.4,.5,.6,.7,.8,.9,1].forEach(t=>{
+  const a=polar(t,R+22),b=polar(t,R+11);
+  const cls='arc-tick '+ (t>0.5?'red':(t===0.5?'amber':''));
+  ticks.innerHTML+=`<line x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}" class="${cls}" stroke-width="3"/>`;
+});
+[{t:0,label:'0'},{t:.5,label:'警戒'},{t:1,label:'MAX'}].forEach(o=>{
+  const p=polar(o.t,R+34);
+  ticks.innerHTML+=`<text x="${p.x}" y="${p.y}" class="tick-label" text-anchor="middle" dominant-baseline="middle">${o.label}</text>`;
+});
+
+let sens=5,warnDb=60;
+sensR.oninput=()=>{sens=+sensR.value;sensV.textContent=sens>8?'高':sens>4?'中':'低';};
+warnR.oninput=()=>{warnDb=+warnR.value;warnV.textContent=warnDb;};
+
+/* 状态判定 & 副标签 */
+const SUB={
+  quiet:{k:'quiet', label:'保持安静',   emo:'😴', sub:'很顺利，继续保持',  cls:'g', rec:'安静'},
+  low:  {k:'low',   label:'有点小动静', emo:'🤫', sub:'请压低声音哦',      cls:'a', rec:'低语'},
+  noisy:{k:'noisy', label:'请保持安静！',emo:'📢', sub:'太吵啦，快安静！', cls:'r', rec:'吵闹'},
+};
+/* 状态判定：基于已含灵敏度的平滑值 smooth(0~1)，灵敏度越高越易判为吵闹 */
+function statusFor(s){
+  if(s<0.3)  return SUB.quiet;
+  if(s<0.62) return SUB.low;
+  return SUB.noisy;
+}
+
+/* ---- 音频 ---- */
+let audioCtx,analyser,timeData,running=false;
+function initMic(){
+  return navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false}}).then(st=>{
+    audioCtx=new (window.AudioContext||window.webkitAudioContext)();
+    const src=audioCtx.createMediaStreamSource(st);
+    analyser=audioCtx.createAnalyser();analyser.fftSize=2048;
+    src.connect(analyser);
+    timeData=new Float32Array(analyser.fftSize);
+    return audioCtx.resume();
+  });
+}
+function getDb(){
+  analyser.getFloatTimeDomainData(timeData);
+  let s=0;for(let i=0;i<timeData.length;i++)s+=timeData[i]*timeData[i];
+  const rms=Math.sqrt(s/timeData.length);
+  return Math.max(30,Math.min(115,Math.round(20*Math.log10(rms+1e-8)+100)));
+}
+
+/* ---- 状态 ==== */
+let smooth=0,peak=0;
+const counts={quiet:0,low:0,noisy:0};
+let history=[];
+/* 5秒采样器 */
+let sampT=0,sampAcc={db:0,sm:0,n:0,max:0};
+
+function drawTrend(){
+  const dpr=window.devicePixelRatio||1;
+  const w=trend2.clientWidth,h=trend2.clientHeight;
+  if(!w)return;
+  trend2.width=w*dpr;trend2.height=h*dpr;
+  const ctx=trend2.getContext('2d');ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,w,h);
+  if(history.length<2)return;
+  const n=history.length,win=Math.min(60,n),bw=w/win;
+  history.slice(-win).forEach((r,i)=>{
+    const x=(n-win+i)*bw;
+    const hi=r.avg||0;
+    const f=Math.max(0,Math.min(1,(hi-30)/(warnDb-28)));
+    const bh=Math.max(2,f*(h-6));
+    ctx.fillStyle=r.state==='noisy'?'#ff4757':r.state==='low'?'#ffa502':'#2ed573';
+    ctx.fillRect(x,h-bh,Math.max(2,bw-2),bh);
+  });
+  ctx.strokeStyle='rgba(255,165,2,.5)';ctx.setLineDash([3,4]);
+  ctx.beginPath();ctx.moveTo(0,h-1);ctx.lineTo(w,h-1);ctx.stroke();
+}
+
+function renderHistory(){
+  sQuiet.textContent=counts.quiet;sLow.textContent=counts.low;sNoisy.textContent=counts.noisy;
+  sPeak.textContent=peak||'--';
+  recMeta.textContent=`共 ${history.length} 条`;
+  recEmpty.style.display=history.length?'none':'block';
+  recRows.innerHTML=(history.length?history.slice().reverse():[]).map(r=>{
+    const st=SUB[r.state]||SUB.low,t=r.t.toTimeString().slice(0,8);
+    return `<div class="rec">
+      <span class="t">${t}</span>
+      <span class="${st.cls}">${r.avg} dB</span>
+      <span class="${st.cls}">${r.max} dB</span>
+      <span class="${st.cls}">${st.rec}</span>
+    </div>`;
+  }).join('');
+  drawTrend();
+}
+
+/* ---- 主循环 ---- */
+let lastT=performance.now();
+function loop(now){
+  const dt=Math.min(.05,(now-lastT)/1000);lastT=now;
+  if(running){
+    const db=getDb();
+    const L=Math.min(1,Math.max(0,(db-30)/55)*(sens/6));
+    smooth+=(L-smooth)*(L>smooth?1-Math.exp(-dt*14):1-Math.exp(-dt*5));
+    peak=Math.max(peak||0,db);
+
+    arc.setAttribute('d',arcPath(smooth));
+    const st=statusFor(smooth);
+    arc.setAttribute('class','arc lvl-'+st.cls);
+    dbNum.textContent=db;dbNum.className='db-num '+st.cls;
+    emoji.textContent=st.emo;emoji.style.color=st.cls==='r'?'var(--red)':st.cls==='a'?'var(--amber)':'var(--green)';
+    statusTxt.textContent=st.label;submin.textContent=st.sub;
+    core.classList.toggle('hot',st.cls==='r');
+    warnBadge.classList.toggle('show',st.cls==='r');
+
+    /* 波纹节奏与颜色 */
+    const rd=Math.max(.7,2.6-smooth*2.2);
+    document.documentElement.style.setProperty('--rd',rd+'s');
+    ripples.forEach((rp,i)=>{
+      rp.classList.toggle('running',smooth>0.15-0.04*i);
+      rp.classList.toggle('amber',st.cls==='a');
+      rp.classList.toggle('red',st.cls==='r');
+      if(smooth>0.15) rp.style.animationDelay=(i*0.7)+'s';
+    });
+
+    /* 5秒采样 */
+    sampT+=dt; sampAcc.db+=db; sampAcc.sm+=smooth; sampAcc.n++; sampAcc.max=Math.max(sampAcc.max,db);
+    if(sampT>=5){
+      const avg=Math.round(sampAcc.db/sampAcc.n);
+      const st2=statusFor(sampAcc.sm/sampAcc.n);
+      counts[st2.k]++;
+      history.push({t:new Date(),avg,max:sampAcc.max,state:st2.k});
+      history=history.slice(-120);
+      renderHistory();
+      sampT=0;sampAcc={db:0,sm:0,n:0,max:0};
+    }
+  }
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+
+/* ---- 控制 ---- */
+function setRunning(on,label){
+  running=on;
+  startBtn.classList.toggle('stop',on);
+  startBtn.innerHTML=(on?'<i data-lucide="square"></i>':'<i data-lucide="mic"></i>')+'<span>'+label+'</span>';
+  lucide.createIcons();
+}
+startBtn.onclick=async()=>{
+  if(!running){
+    try{ await initMic(); setRunning(true,'停止检测'); }
+    catch(e){ alert('麦克风开启失败：'+(e.name==='NotAllowedError'?'请允许浏览器访问麦克风。':(e.message||'未知错误'))); }
+  }else setRunning(false,'开始检测');
+};
+fsBtn.onclick=()=>{
+  if(document.fullscreenElement) document.exitFullscreen();
+  else document.documentElement.requestFullscreen().catch(()=>{});
+};
+exportBtn.onclick=()=>{
+  if(!history.length){ alert('还没有记录可导出'); return; }
+  const head='时间,平均分贝,最高分贝,状态\n';
+  const body=history.map(r=>`${r.t.toTimeString().slice(0,8)},${r.avg},${r.max},${SUB[r.state].rec}`).join('\n');
+  const blob=new Blob(['\ufeff'+head+body],{type:'text/csv;charset=utf-8'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='课堂安静记录.csv';
+  a.click();URL.revokeObjectURL(a.href);
+};
+
+lucide.createIcons();
+</script>
+</body>
+</html>
